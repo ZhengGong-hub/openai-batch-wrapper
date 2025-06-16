@@ -34,6 +34,7 @@ def preprocess_dataframe(df, guiding_prompt, content_col, chunk_size=1000, outpu
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(os.path.join(output_dir, 'indexed_input_data'), exist_ok=True)
+    os.makedirs(os.path.join(output_dir, 'jsonl'), exist_ok=True)
 
     # reset the index in case the original index is not sequential
     df = df.reset_index(drop=True)
@@ -69,8 +70,13 @@ def preprocess_dataframe(df, guiding_prompt, content_col, chunk_size=1000, outpu
             }
         })
     
-    print(len(jsonlist[0]))
-    print(len(jsonlist[1]))
-    assert False
+    print('length of jsonlist[0]: ', len(jsonlist[0]), 'and saved to: ', os.path.join(output_dir, 'jsonl', f'job_0.jsonl'))
+    print('length of jsonlist[1]: ', len(jsonlist[1]), 'and saved to: ', os.path.join(output_dir, 'jsonl', f'job_1.jsonl'))
+    
+    # save jsonlists by job_id
+    for i, job_id in enumerate(df['job_id'].unique()):
+        with open(os.path.join(output_dir, 'jsonl', f'job_{job_id}.jsonl'), 'w') as f:
+            for item in jsonlist[i]:
+                f.write(json.dumps(item) + '\n')
 
     return jsonlist
