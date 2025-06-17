@@ -196,3 +196,5 @@ cython_debug/
 # input data
 input_data/
 test_output_data/
+
+*.db
