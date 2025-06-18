@@ -7,7 +7,7 @@ from openai_batch_wrapper.batch_manager import BatchManager
 batch_manager = BatchManager(
     job_id="job_0_test",
     input_jsonl_path="test_output_data/test1/jsonl/job_0.jsonl",
-    db_reset=False
+    batch_task_reset=False
 )
 
 batch_manager.upload_file()

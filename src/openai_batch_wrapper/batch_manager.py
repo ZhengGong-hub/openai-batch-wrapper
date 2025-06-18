@@ -29,7 +29,7 @@ class BatchManager:
         output_path: str=None,
         api_key: Optional[str] = None,
         db_path: str = None,
-        db_reset: bool = False
+        batch_task_reset: bool = False
     ):
         """
         Initialize the BatchManager.
@@ -72,7 +72,7 @@ class BatchManager:
             self.db = duckdb.connect(database=os.path.join(os.path.dirname(db_path), 'batch_status.db'))
         else:
             self.db = duckdb.connect(database=os.path.join(self.output_path, 'batch_status.db'))
-        self._init_db(reset=db_reset)
+        self._init_db(reset=batch_task_reset)
 
         if self.db.execute("SELECT COUNT(*) FROM batch_status WHERE job_id = ?", (self.job_id,)).fetchone()[0] > 0:
             logger.info(f"Job {self.job_id} already exists in the database")
