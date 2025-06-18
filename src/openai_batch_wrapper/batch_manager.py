@@ -26,8 +26,9 @@ class BatchManager:
         self,
         job_id: str,
         input_jsonl_path: str=None,
+        output_path: str=None,
         api_key: Optional[str] = None,
-        db_path: str = "batch_status.db",
+        db_path: str = None,
         db_reset: bool = False
     ):
         """
@@ -36,6 +37,7 @@ class BatchManager:
         Args:
             job_id: Job ID
             input_jsonl_path: Path to the input JSONL file
+            output_path: Path to the output directory
             api_key: OpenAI API key. If None, will look for OPENAI_API_KEY env variable
             db_path: Path to the DuckDB database file
         """
@@ -56,9 +58,20 @@ class BatchManager:
             raise ValueError("OpenAI API key must be provided or set as OPENAI_API_KEY environment variable")
         
         self.client = OpenAI(api_key=self.api_key)
+
+        if output_path:
+            os.makedirs(output_path, exist_ok=True)
+            self.output_path = output_path
+        else:
+            # infer it from the input_jsonl_path
+            self.output_path = os.path.join(os.path.dirname(os.path.dirname(self.input_jsonl_path)), 'output')
+            os.makedirs(self.output_path, exist_ok=True)
         
         # Initialize DuckDB connection
-        self.db = duckdb.connect(db_path)
+        if db_path:
+            self.db = duckdb.connect(database=os.path.join(os.path.dirname(db_path), 'batch_status.db'))
+        else:
+            self.db = duckdb.connect(database=os.path.join(self.output_path, 'batch_status.db'))
         self._init_db(reset=db_reset)
 
         if self.db.execute("SELECT COUNT(*) FROM batch_status WHERE job_id = ?", (self.job_id,)).fetchone()[0] > 0:
@@ -164,6 +177,10 @@ class BatchManager:
         Returns:
             str: File ID
         """
+        if self.batch_input_file_id:
+            logger.info(f"File {self.batch_input_file_id} already uploaded")
+            return self.batch_input_file_id
+
         logger.info(f"Uploading file {self.input_jsonl_path} to OpenAI")
         batch_input_file = self.client.files.create(file=self.input_jsonl, purpose='batch')
         self.batch_input_file_id = batch_input_file.id
@@ -186,6 +203,10 @@ class BatchManager:
         Returns:
             str: Batch ID
         """
+        if self.openai_batch_id:
+            logger.info(f"Batch {self.openai_batch_id} already created")
+            return self.openai_batch_id
+        
         logger.info("Creating new batch processing job")
         batch_object_response = self.client.batches.create(
             input_file_id=self.batch_input_file_id,
@@ -219,7 +240,10 @@ class BatchManager:
             Dict: Batch status
         """
         logger.info(f"Getting status for batch {self.openai_batch_id} for job {self.job_id}")
-        batch_status = self.client.batches.retrieve(self.openai_batch_id)
+        if self.openai_batch_id: # if the batch is created, get the status
+            batch_status = self.client.batches.retrieve(self.openai_batch_id)
+        else:
+            raise ValueError("Cannot get a valid batchid, please check if the batch is created!")
 
         self.openai_output_file_id = batch_status.output_file_id
 
@@ -267,13 +291,13 @@ class BatchManager:
         output_file = self.client.files.content(self.openai_output_file_id)
 
         # save the output file to a local file
-        with open(f"output_{self.job_id}.jsonl", "w") as f:
+        with open(os.path.join(self.output_path, f"output_{self.job_id}.jsonl"), "w") as f:
             f.write(output_file.text)
 
         df = self._regulate_output(output_file.text)
-        df.to_csv(f"output_{self.job_id}.csv", index=False)
+        df.to_csv(os.path.join(self.output_path, f"output_{self.job_id}.csv"), index=False)
 
-        return [f"output_{self.job_id}.csv", f"output_{self.job_id}.jsonl"]
+        return [os.path.join(self.output_path, f"output_{self.job_id}.csv"), os.path.join(self.output_path, f"output_{self.job_id}.jsonl")]
 
     def cancel_batch(self) -> bool:
         """
