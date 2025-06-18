@@ -198,3 +198,6 @@ input_data/
 test_output_data/
 
 *.db
+
+*.jsonl
+*.csv
