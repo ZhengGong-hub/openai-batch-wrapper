@@ -28,7 +28,7 @@ def num_tokens_from_messages(messages, model="gpt-4"):
     num_tokens += 2  # every reply is primed with <im_start>assistant
     return num_tokens
 
-def preprocess_dataframe(df, guiding_prompt, content_col, chunk_size=1000, output_dir='chunks', llm_model='gpt-4'):
+def preprocess_dataframe(df, guiding_prompt, content_col, chunk_size=1000, output_dir='chunks', llm_model='gpt-4', structured_output_path=None):
     """
     Preprocess a DataFrame by chunking it, indexing rows and jobs, and saving the results as JSONL files.
     
@@ -39,7 +39,7 @@ def preprocess_dataframe(df, guiding_prompt, content_col, chunk_size=1000, outpu
         chunk_size (int): The number of rows per chunk.
         output_dir (str): Directory to save the chunked and indexed DataFrames.
         llm_model (str): The OpenAI model to use.
-    
+        structured_output_path (str): The path to the structured output JSON file.
     Returns:
         list: JSONL file paths
     """
@@ -85,17 +85,33 @@ def preprocess_dataframe(df, guiding_prompt, content_col, chunk_size=1000, outpu
         # Calculate tokens for this conversation
         tokens = num_tokens_from_messages(conversations, model=llm_model)
         total_tokens += tokens
-        
-        jsonlist[row['job_id']].append({ 
-            "custom_id": str(row['bash_custom_id']),
-            "method": "POST",
-            "url": "/v1/chat/completions",
-            "body": {
-                "model": llm_model,
-                "temperature": 0,
-                "messages": conversations
-            }
-        })
+
+        if structured_output_path is not None:
+            jsonlist[row['job_id']].append({ 
+                "custom_id": str(row['bash_custom_id']),
+                "method": "POST",
+                "url": "/v1/chat/completions",
+                "body": {
+                    "model": llm_model,
+                    "temperature": 0,
+                    "messages": conversations,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": json.load(open(structured_output_path))
+                    }
+                }
+            })
+        else:
+            jsonlist[row['job_id']].append({ 
+                "custom_id": str(row['bash_custom_id']),
+                "method": "POST",
+                "url": "/v1/chat/completions",
+                "body": {
+                    "model": llm_model,
+                    "temperature": 0,
+                    "messages": conversations,
+                }
+            })
     
     logger.info(f'Total estimated input tokens: {round(total_tokens/1000000, 2)} million tokens')
 
