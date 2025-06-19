@@ -9,6 +9,9 @@ import duckdb
 import pandas as pd
 from .logger import setup_logger
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import dotenv
 dotenv.load_dotenv()
 
@@ -29,7 +32,8 @@ class BatchManager:
         output_path: str=None,
         api_key: Optional[str] = None,
         db_path: str = None,
-        batch_task_reset: bool = False
+        batch_task_reset: bool = False,
+        verbose: bool = True
     ):
         """
         Initialize the BatchManager.
@@ -41,6 +45,7 @@ class BatchManager:
             api_key: OpenAI API key. If None, will look for OPENAI_API_KEY env variable
             db_path: Path to the DuckDB database file
         """
+        self.verbose = verbose
         self.job_id = job_id
         if not input_jsonl_path:
             self.input_jsonl_path = None
@@ -75,9 +80,11 @@ class BatchManager:
         self._init_db(reset=batch_task_reset)
 
         if self.db.execute("SELECT COUNT(*) FROM batch_status WHERE job_id = ?", (self.job_id,)).fetchone()[0] > 0:
-            logger.info(f"Job {self.job_id} already exists in the database")
+            if self.verbose:
+                logger.info(f"Job {self.job_id} already exists in the database")
         else:
-            logger.info(f"Job {self.job_id} does not exist in the database")
+            if self.verbose:
+                logger.info(f"Job {self.job_id} does not exist in the database")
 
         try:
             self.batch_input_file_id = [item for item in self.db.execute("SELECT openai_file_id FROM batch_status WHERE job_id = ?", (self.job_id,)).fetchall() if item[0] is not None][0][0]
@@ -97,8 +104,6 @@ class BatchManager:
             self.openai_output_file_id = None
             logger.info(f"No output file ID found for job {self.job_id}")
 
-        # check if the file is already uploaded
-        logger.info(f"Initialized BatchManager with database at {db_path}")
         
     def _init_db(self, reset: bool = False):
         if reset:
@@ -256,9 +261,10 @@ class BatchManager:
             'openai_output_file_id': self.openai_output_file_id
         })
         # return everything in the batch_status.db about this job
-        status_output = pd.DataFrame(self.db.execute("SELECT * FROM batch_status WHERE job_id = ?", (self.job_id,)).fetchall(), columns=["job_id", "openai_file_id", "openai_batch_id", "updated_at", "status", "message", "progress", "openai_output_file_id"]).tail(20)
-        logger.info(f"Status output: {status_output}")
-        return status_output['status'].iloc[-1] # in-progress or completed
+        status_output = pd.DataFrame(self.db.execute("SELECT * FROM batch_status WHERE job_id = ?", (self.job_id,)).fetchall(), columns=["job_id", "openai_file_id", "openai_batch_id", "updated_at", "status", "message", "progress", "openai_output_file_id"]).tail(3)
+        if self.verbose:
+            logger.info(f"Status output: {status_output}")
+        return status_output['status'].iloc[-1], status_output # in-progress or completed
 
     def _regulate_output(self, output_file: str) -> pd.DataFrame:
         """
@@ -287,7 +293,8 @@ class BatchManager:
         Returns:
             str: Output file ID
         """
-        logger.info(f"Getting output file for job {self.job_id}")
+        if self.verbose:
+            logger.info(f"Getting output file for job {self.job_id}")
         output_file = self.client.files.content(self.openai_output_file_id)
 
         # save the output file to a local file

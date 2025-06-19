@@ -8,4 +8,4 @@ help:
 	@echo "  make help      - Show help"
 
 track-retrieve:
-	uv run $(SCRIPT) $(job_id)
+	uv run $(SCRIPT) $(input_path)
