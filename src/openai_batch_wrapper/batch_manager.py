@@ -7,6 +7,7 @@ from openai import OpenAI
 from pathlib import Path
 import duckdb
 import pandas as pd
+from tqdm import tqdm
 from .logger import setup_logger
 
 import warnings
@@ -325,4 +326,18 @@ class BatchManager:
             'message': 'Batch cancelled by user'
         })
         logger.info(f"Successfully cancelled batch {self.openai_batch_id} for job {self.job_id}")
+        return True
+
+    def delete_all_files(self) -> bool:
+        """
+        Delete all the files in openai.
+        """
+        logger.info(f"Deleting all files in openai")
+
+        # get all the files in openai
+        files = self.client.files.list()
+        logger.info(f"Found {len(files.data)} files in openai")
+        for file in tqdm(files.data, desc="Deleting files"):
+            self.client.files.delete(file.id)
+
         return True

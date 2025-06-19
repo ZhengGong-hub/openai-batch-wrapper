@@ -13,5 +13,7 @@ batch_manager = BatchManager(
     batch_task_reset=False
 )
 
+# batch_manager.delete_all_files()
+
 batch_manager.upload_file()
 batch_manager.create_batch()
