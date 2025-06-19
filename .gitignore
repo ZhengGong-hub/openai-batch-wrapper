@@ -209,3 +209,5 @@ output_data/
 *.fls
 *.out
 *.synctex.gz
+
+.DS_Store

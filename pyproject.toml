@@ -1,18 +1,25 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "openai-batch-wrapper"
-version = "0.1.0"
 description = "A simple OpenAI batch wrapper using UV package manager"
-authors = [{ name = "Your Name", email = "your.email@example.com" }]
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "ZhengGong", email = "zheng.gong94@gmail.com" }
+]
+readme = "README.md"
+version="0.1.0"
 dependencies = [
     "openai",
     "pandas==2.3.0",
     "fastparquet",
-    "tiktoken"
-    ]
+    "tiktoken",
+    "duckdb"
+]
 
-[project.scripts]
-openai-batch = "openai_batch_wrapper.cli:main" 
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["openai_batch_wrapper"]
